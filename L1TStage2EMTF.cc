@@ -1,9 +1,7 @@
 #include <string>
 #include <vector>
-#include <math.h>
 
 #include "DQM/L1TMonitor/interface/L1TStage2EMTF.h"
-
 
 L1TStage2EMTF::L1TStage2EMTF(const edm::ParameterSet& ps)
     : daqToken(consumes<l1t::EMTFDaqOutCollection>(ps.getParameter<edm::InputTag>("emtfSource"))),
@@ -150,8 +148,13 @@ void L1TStage2EMTF::bookHistograms(DQMStore::IBooker& ibooker, const edm::Run&, 
   emtfTrackPhi->setAxisTitle("Track #phi", 1);
 //==================QUALITY TESTER====================================================
 //====================================================================================
-  emtfTrackPhiQT = ibooker.book1D("emtfTrackPhiQT", "EMTF Track #phi QT", 128, -3.2, 3.2);
+  emtfTrackPhiQT = ibooker.book1D("emtfTrackPhiQT", "EMTF Track #phi QT", 128, -3, 3);
+  //narrowed x-range for testing purposes
   emtfTrackPhiQT->setAxisTitle("Track #phi QT", 1);
+  //emtfTrackPhiQT->getTH1F()->Sumw2();
+  
+
+  //TProfile *emtfTrackPhiX = emtfTrackPhi->TProfile("emtfTrackPhiX", "EMTF Track #phi Prof", -3.2, 3.2);
 //====================================================================================
 //====================================================================================
 
@@ -345,8 +348,12 @@ void L1TStage2EMTF::analyze(const edm::Event& e, const edm::EventSetup& c) {
 //================QUALITY TESTER==================
 //================================================
     emtfTrackPhiQT->Fill(phi_glob_rad);
-    Double_t scale = 1/emtfTrackPhiQT->Integral();
-    emtfTrackPhiQT->Scale(scale);
+
+    //normalize histogram
+    Double_t scale = (emtfTrackPhiQT->getTH1()->Integral())/128;
+    //Double_t scale = (emtfTrackPhiQT->getTH1()->Integral());
+    emtfTrackPhiQT->getTH1()->Scale(1/scale);
+
 //================================================
 //================================================
     emtfTrackPhiCoarse->Fill(phi_glob_rad);
@@ -356,15 +363,16 @@ void L1TStage2EMTF::analyze(const edm::Event& e, const edm::EventSetup& c) {
     emtfTrackQualityVsMode->Fill(mode, quality);
     emtfTrackSectorIndex->Fill(endcap*sector);
     if (mode == 15) emtfTrackPhiHighQuality->Fill(phi_glob_rad);
-   }
+
+  } //end of track collection
 
   // Regional Muon Candidates
   edm::Handle<l1t::RegionalMuonCandBxCollection> MuonBxCollection;
   e.getByToken(muonToken, MuonBxCollection);
 
-  for (int itBX = MuonBxCollection->getFirstBX(); itBX <= MuonBxCollection->getLastBX(); ++itBX) {
+  for (int itBX = MuonBxCollection->getFirstBX(); itBX <= MuonBxCollection->getLastBX(); ++itBX){
     if (filterBX && (itBX > 1 || itBX < -1)) continue;
-    for (l1t::RegionalMuonCandBxCollection::const_iterator Muon = MuonBxCollection->begin(itBX); Muon != MuonBxCollection->end(itBX); ++Muon) {
+    for (l1t::RegionalMuonCandBxCollection::const_iterator Muon = MuonBxCollection->begin(itBX); Muon != MuonBxCollection->end(itBX); ++Muon){
       emtfMuonBX->Fill(itBX);
       emtfMuonhwPt->Fill(Muon->hwPt());
       emtfMuonhwPtCoarse->Fill(Muon->hwPt());
@@ -376,4 +384,5 @@ void L1TStage2EMTF::analyze(const edm::Event& e, const edm::EventSetup& c) {
     }
   }
 }
+
 
